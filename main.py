@@ -44,11 +44,12 @@ class CachingProxyHandler(http.server.BaseHTTPRequestHandler):
 
         if cache_key in cache:
             print(f"Cache hit: {cache_key}")
+            cached_content, content_type = cache[cache_key]
             self.send_response(200)
-            self.send_header("Content-type", "application/json")
+            self.send_header('Content-type', content_type)
             self.send_header('X-Cache', 'HIT')
             self.end_headers()
-            self.wfile.write(cache[cache_key].encode("utf-8"))
+            self.wfile.write(cached_content.encode("utf-8"))
             return
 
         print(f"Cache miss: {cache_key}")
@@ -57,10 +58,11 @@ class CachingProxyHandler(http.server.BaseHTTPRequestHandler):
         origin_url = f"{self.server.origin}{self.path}"
         try:
             headers = {'Accept-Encoding': 'identity'}
-            response = requests.get(origin_url,headers=headers, stream=True)
+            response = requests.get(origin_url, headers=headers, stream=True)
 
             if response.status_code == 200:
-                cache[cache_key] = response.text
+                content_type = response.headers.get('Content-Type', '')
+                cache[cache_key] = (response.text, content_type)
                 save_cache()
             
             self.send_response(response.status_code)
@@ -70,6 +72,7 @@ class CachingProxyHandler(http.server.BaseHTTPRequestHandler):
                     self.send_header(key, value)
 
             self.send_header('X-Cache', 'MISS')
+            self.send_header('Content-type', content_type)
             self.end_headers()
 
             for chunk in response.iter_content(chunk_size=4096):
