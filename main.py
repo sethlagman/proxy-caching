@@ -43,19 +43,19 @@ class CachingProxyHandler(http.server.BaseHTTPRequestHandler):
         cache_key = parsed_url.path
 
         if cache_key in cache:
-            print(f"Cache hit: {cache_key}")
+            print(f'Cache hit: {cache_key}')
             cached_content, content_type = cache[cache_key]
             self.send_response(200)
             self.send_header('Content-type', content_type)
-            self.send_header('X-Cache', 'HIT')
+            self.send_header('X-Cache', 'HIT') # Cache header (stored in cache)
             self.end_headers()
-            self.wfile.write(cached_content.encode("utf-8"))
+            self.wfile.write(cached_content.encode('utf-8')) # Write the content to output stream
             return
 
         print(f"Cache miss: {cache_key}")
 
         # Forward request to origin
-        origin_url = f"{self.server.origin}{self.path}"
+        origin_url = f'{self.server.origin}{self.path}'
         try:
             headers = {'Accept-Encoding': 'identity'}
             response = requests.get(origin_url, headers=headers, stream=True)
@@ -63,28 +63,28 @@ class CachingProxyHandler(http.server.BaseHTTPRequestHandler):
             if response.status_code == 200:
                 content_type = response.headers.get('Content-Type', '')
                 cache[cache_key] = (response.text, content_type)
-                save_cache()
+                save_cache() # Save it to cache
             
             self.send_response(response.status_code)
 
-            for key, value in response.headers.items():
+            for key, value in response.headers.items(): # Retrieve the origin's headers
                 if key.lower() != 'transfer-encoding':
-                    self.send_header(key, value)
+                    self.send_header(key, value) # Then send it to the client also
 
-            self.send_header('X-Cache', 'MISS')
+            self.send_header('X-Cache', 'MISS') # Cache header (not stored in cache)
             self.send_header('Content-type', content_type)
             self.end_headers()
 
-            for chunk in response.iter_content(chunk_size=4096):
-                self.wfile.write(chunk)
+            for chunk in response.iter_content(chunk_size=4096): # Breaks up content to handle large responses
+                self.wfile.write(chunk) # Write and send it back to the client (HTTP response body)
         
         except requests.RequestException as e:
-            self.send_error(500, f"Error fetching data: {e}")
+            self.send_error(500, f'Error fetching data: {e}')
 
 
 def main():
 
-    parser = ArgumentParser(description="Proxy Caching")
+    parser = ArgumentParser(description='Proxy Caching')
 
     parser.add_argument('--port', type=int, help='Port where the caching proxy server will run')
     parser.add_argument('--origin', type=str, help='URL of the origin server to forward request')
@@ -106,7 +106,7 @@ def main():
             self.origin = origin
 
     with ProxyServer(("", args.port), CachingProxyHandler, args.origin) as httpd:
-        print(f"Serving at port {args.port}, forwarding to {args.origin}")
+        print(f'Serving at port {args.port}, forwarding to {args.origin}')
         httpd.serve_forever()
 
 
@@ -114,6 +114,6 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("Server shutting down...")
+        print('Server shutting down...')
     finally:
         save_cache()
